@@ -1,0 +1,6 @@
+# Тестовый скрипт
+ls -la
+cd /home
+qwerty
+ls
+exit
