@@ -1,6 +1,7 @@
 import getpass
 import socket
 import argparse
+from vfs import load_vfs
 
 
 def get_prompt():
@@ -83,9 +84,14 @@ def main():
     if args.script:
         run_script(args.script)
 
-    # Если VFS задан, но мы на Этапе 2 - просто заглушка
+    # Загрузка VFS (Этап 3)
     if args.vfs:
-        print(f"[STUB] Загрузка VFS из {args.vfs} (будет реализовано на Этапе 3)")
+        try:
+            root_dir, vfs_name = load_vfs(args.vfs)
+            print(f"Успешно загружена VFS: '{vfs_name}'")
+            print(f"Корневые папки: {list(root_dir.children.keys())}")
+        except Exception as e:
+            print(e)
 
     # Запуск интерактивного режима
     print("Добро пожаловать в эмулятор оболочки (Этап 2: Конфигурация)")

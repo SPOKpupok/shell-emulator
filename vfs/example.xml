@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs name="my_pc">
+    <dir name="home">
+        <dir name="user">
+            <file name="readme.txt" type="text">SGVsbG8sIFdvcmxkIQ==</file>
+        </dir>
+        <file name="notes.txt" type="text">TXkgbm90ZXM=</file>
+    </dir>
+    <dir name="etc">
+        <file name="config.ini" type="text">dXNlcj1hZG1pbg==</file>
+    </dir>
+</vfs>
