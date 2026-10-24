@@ -1,14 +1,20 @@
 import getpass
 import socket
 import argparse
-from vfs import load_vfs
+from vfs import load_vfs, VFSDir, VFSFile
 
+# Глобальные переменные для нашего состояния
+CURRENT_DIR = None
+VFS_NAME = "unknown"
 
 def get_prompt():
     user = getpass.getuser()
     host = socket.gethostname()
-
-    return f"{user}@{host}:~"
+    # Формируем путь для приглашения (пока просто имя текущей папки)
+    cwd = CURRENT_DIR.name if CURRENT_DIR else "~"
+    if cwd == "/":
+        cwd = "/"
+    return f"{user}@{host}:{cwd}$ "
 
 def parse_command(user_input):
     parts = user_input.strip().split()
@@ -17,84 +23,126 @@ def parse_command(user_input):
     return parts[0], parts[1:]
 
 def execute_command(command, args):
-    """Выполняет команду. Возвращает True (успех), False (ошибка) или 'EXIT'."""
+    global CURRENT_DIR, VFS_NAME
+    
     if command == "exit":
         return "EXIT"
-    elif command in ["ls", "cd"]:
-        print(f"[STUB] Вызвана команда: {command}")
+        
+    elif command == "ls":
+        # Если аргументов нет - показываем текущую папку
+        target_dir = CURRENT_DIR
         if args:
-            print(f"[STUB] Аргументы: {args}")
+            # Если аргумент есть, пытаемся найти папку (упрощенно, только для текущей директории)
+            target_dir = CURRENT_DIR.children.get(args[0])
+            if not target_dir or not isinstance(target_dir, VFSDir):
+                print(f"ls: cannot access '{args[0]}': No such file or directory")
+                return True
+
+        # Выводим содержимое
+        items = list(target_dir.children.keys())
+        if items:
+            print("  ".join(items))
         return True
-    # Сюда мы потом добавим tac, cat, uname, mv
+
+    elif command == "cd":
+        if not args:
+            # cd без аргументов ведет в корень
+            CURRENT_DIR = CURRENT_DIR.parent if CURRENT_DIR.parent else CURRENT_DIR
+            return True
+        
+        target_name = args[0]
+        
+        if target_name == "..":
+            if CURRENT_DIR.parent:
+                CURRENT_DIR = CURRENT_DIR.parent
+            return True
+        elif target_name == "/":
+            while CURRENT_DIR.parent:
+                CURRENT_DIR = CURRENT_DIR.parent
+            return True
+        else:
+            target = CURRENT_DIR.children.get(target_name)
+            if target and isinstance(target, VFSDir):
+                CURRENT_DIR = target
+            else:
+                print(f"cd: no such file or directory: {target_name}")
+            return True
+
+    elif command == "uname":
+        print(VFS_NAME)
+        return True
+
+    elif command == "tac":
+        if not args:
+            print("tac: missing file operand")
+            return True
+        
+        target = CURRENT_DIR.children.get(args[0])
+        if target and isinstance(target, VFSFile):
+            # Читаем текст и переворачиваем строки
+            text = target.get_text()
+            lines = text.splitlines()
+            for line in reversed(lines):
+                print(line)
+        else:
+            print(f"tac: {args[0]}: No such file or directory")
+        return True
+
     else:
         print(f"Ошибка: команда '{command}' не найдена.")
         return False
 
-def cmd_stub(command, args):
-    print(f'[STUB] Вызвана команда: {command}')
-    if args:
-        print(f"[STUB] Аргументы: {args}")
-
-def main():
-    print("Добро пожаловать в эмулятор оболочки (Этап 1: REPL)")
-    print("Введите 'exit' для выхода.\n")
-
 def run_script(filepath):
     print(f"\n--- Запуск скрипта: {filepath} ---")
-
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-
-                prompt = get_prompt()
-                print(f"{prompt}{line}")
-
+                if not line or line.startswith("#"): continue
+                
+                print(f"{get_prompt()}{line}")
                 cmd, args = parse_command(line)
                 res = execute_command(cmd, args)
-
+                
                 if res == "EXIT":
                     print("Выход...")
                     return
                 if res is False:
-                   print("[!] Ошибка выполнения скрипта. Остановка.")
-                   return
+                    print("[!] Ошибка выполнения скрипта. Остановка.")
+                    return
     except FileNotFoundError:
         print(f"Ошибка: Файл скрипта не найден: {filepath}")
     print("--- Завершение скрипта ---\n")
 
-
-
 def main():
-    # Настройка аргументов командной строки
-    parser = argparse.ArgumentParser(description="Эмулятор оболочки (Этап 2)")
-    parser.add_argument("--vfs", help="Путь к виртуальной файловой системе (XML)")
+    global CURRENT_DIR, VFS_NAME
+    
+    parser = argparse.ArgumentParser(description="Эмулятор оболочки (Этап 4)")
+    parser.add_argument("--vfs", help="Путь к VFS (XML)")
     parser.add_argument("--script", help="Путь к стартовому скрипту")
     args = parser.parse_args()
 
-    # Отладочный вывод параметров (требование Этапа 2)
     print("=== Параметры запуска ===")
     print(f"VFS: {args.vfs if args.vfs else 'не задан'}")
     print(f"Скрипт: {args.script if args.script else 'не задан'}")
     print("=========================\n")
 
-    # Если передан скрипт - выполняем его
+    # Загрузка VFS
+    if args.vfs:
+        try:
+            CURRENT_DIR, VFS_NAME = load_vfs(args.vfs)
+            print(f"Успешно загружена VFS: '{VFS_NAME}'")
+        except Exception as e:
+            print(e)
+    else:
+        # Создаем пустую VFS, если файл не передан
+        CURRENT_DIR = VFSDir("/")
+        VFS_NAME = "empty_vfs"
+
     if args.script:
         run_script(args.script)
 
-    # Загрузка VFS (Этап 3)
-    if args.vfs:
-        try:
-            root_dir, vfs_name = load_vfs(args.vfs)
-            print(f"Успешно загружена VFS: '{vfs_name}'")
-            print(f"Корневые папки: {list(root_dir.children.keys())}")
-        except Exception as e:
-            print(e)
-
-    # Запуск интерактивного режима
-    print("Добро пожаловать в эмулятор оболочки (Этап 2: Конфигурация)")
+    print("Добро пожаловать в эмулятор оболочки (Этап 4)")
     print("Введите 'exit' для выхода.\n")
 
     while True:

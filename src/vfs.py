@@ -16,13 +16,14 @@ class VFSFile:
 
 class VFSDir:
     """Класс, описывающий папку в нашей виртуальной системе"""
-    def __init__(self, name):
+    def __init__(self, name, parent=None): # <--- ДОБАВИЛИ parent
         self.name = name
-        self.children = {}  # Словарь, где хранятся файлы и папки внутри этой папки
+        self.parent = parent  # Ссылка на родительскую папку (для команды cd ..)
+        self.children = {}  
 
     def add_child(self, child):
-        """Добавляет файл или папку внутрь текущей папки"""
         self.children[child.name] = child
+        child.parent = self  # <--- Устанавливаем родителя для ребенка
 
 def load_vfs(filepath):
     """Функция, которая читает XML-файл и строит дерево объектов в памяти"""
@@ -40,7 +41,7 @@ def load_vfs(filepath):
             for child in element:
                 if child.tag == 'dir':
                     # Если это папка - создаем VFSDir
-                    new_dir = VFSDir(child.get('name'))
+                    new_dir = VFSDir(child.get('name'), current_dir) # <--- Передаем current_dir как родителя
                     current_dir.add_child(new_dir)
                     parse_dir(child, new_dir) # Заходим внутрь папки (рекурсия)
                 elif child.tag == 'file':
