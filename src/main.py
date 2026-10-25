@@ -88,9 +88,61 @@ def execute_command(command, args):
             print(f"tac: {args[0]}: No such file or directory")
         return True
 
+    elif command == "mv":
+        # Проверяем, что переданы два аргумента: откуда и куда
+        if len(args) != 2:
+            print("mv: missing file operand")
+            return True
+        
+        source_name = args[0]
+        dest_name = args[1]
+
+        # 1. Ищем исходный файл или папку в текущей директории
+        source = CURRENT_DIR.children.get(source_name)
+        if not source:
+            print(f"mv: cannot stat '{source_name}': No such file or directory")
+            return True
+
+        # 2. Проверяем, куда мы перемещаем (dest_name)
+        # Если dest_name совпадает с именем существующей папки в текущей директории
+        dest_obj = CURRENT_DIR.children.get(dest_name)
+        
+        if dest_obj and isinstance(dest_obj, VFSDir):
+            # Перемещение ВНУТРЬ папки
+            target_dir = dest_obj
+            
+            # Удаляем из старой папки
+            del CURRENT_DIR.children[source_name]
+            
+            # Добавляем в новую папку (перезаписываем, если там уже есть файл с таким именем)
+            target_dir.add_child(source)
+            
+            print(f"Файл '{source_name}' перемещен в папку '{dest_name}'")
+            
+        else:
+            # ПЕРЕИМЕНОВАНИЕ (если второго аргумента-папки нет, просто меняем имя)
+            
+            # Удаляем старый ключ из словаря текущей папки
+            del CURRENT_DIR.children[source_name]
+            
+            # Меняем имя самому объекту
+            source.name = dest_name
+            
+            # Добавляем обратно в текущую папку уже с новым именем
+            CURRENT_DIR.children[dest_name] = source
+            
+            print(f"Файл переименован в '{dest_name}'")
+            
+        return True
+
     else:
         print(f"Ошибка: команда '{command}' не найдена.")
         return False
+
+    
+
+    
+
 
 def run_script(filepath):
     print(f"\n--- Запуск скрипта: {filepath} ---")
