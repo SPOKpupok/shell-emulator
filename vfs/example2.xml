@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs name="minimal_pc">
+    <dir name="docs">
+        <file name="test.txt" type="text">VGVzdA==</file>
+    </dir>
+</vfs>

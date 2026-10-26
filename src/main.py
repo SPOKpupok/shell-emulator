@@ -22,123 +22,111 @@ def parse_command(user_input):
         return None, []
     return parts[0], parts[1:]
 
+# --- Функции для команд ---
+
+def cmd_ls(args):
+    target_dir = CURRENT_DIR
+    if args:
+        target_dir = CURRENT_DIR.children.get(args[0])
+        if not target_dir or not isinstance(target_dir, VFSDir):
+            print(f"ls: нет доступа к '{args[0]}': Нет такого файла или каталога")
+            return True
+
+    items = list(target_dir.children.keys())
+    if items:
+        print("  ".join(items))
+    return True
+
+def cmd_cd(args):
+    global CURRENT_DIR
+    if not args:
+        if CURRENT_DIR.parent:
+            CURRENT_DIR = CURRENT_DIR.parent
+        return True
+    
+    target_name = args[0]
+    
+    if target_name == "..":
+        if CURRENT_DIR.parent:
+            CURRENT_DIR = CURRENT_DIR.parent
+        return True
+    elif target_name == "/":
+        while CURRENT_DIR.parent:
+            CURRENT_DIR = CURRENT_DIR.parent
+        return True
+    else:
+        target = CURRENT_DIR.children.get(target_name)
+        if target and isinstance(target, VFSDir):
+            CURRENT_DIR = target
+        else:
+            print(f"cd: нет такого файла или каталога: {target_name}")
+        return True
+
+def cmd_uname(args):
+    print(VFS_NAME)
+    return True
+
+def cmd_tac(args):
+    if not args:
+        print("tac: не указан файл")
+        return True
+    
+    target = CURRENT_DIR.children.get(args[0])
+    if target and isinstance(target, VFSFile):
+        text = target.get_text()
+        lines = text.splitlines()
+        for line in reversed(lines):
+            print(line)
+    else:
+        print(f"tac: {args[0]}: Нет такого файла или каталога")
+    return True
+
+def cmd_mv(args):
+    global CURRENT_DIR
+    if len(args) != 2:
+        print("mv: не указаны файлы для перемещения")
+        return True
+    
+    source_name, dest_name = args[0], args[1]
+    source = CURRENT_DIR.children.get(source_name)
+    if not source:
+        print(f"mv: невозможно переместить '{source_name}': Нет такого файла или каталога")
+        return True
+
+    dest_obj = CURRENT_DIR.children.get(dest_name)
+    
+    if dest_obj and isinstance(dest_obj, VFSDir):
+        target_dir = dest_obj
+        del CURRENT_DIR.children[source_name]
+        target_dir.add_child(source)
+        print(f"'{source_name}' перемещен в каталог '{dest_name}'")
+    else:
+        del CURRENT_DIR.children[source_name]
+        source.name = dest_name
+        CURRENT_DIR.children[dest_name] = source
+        print(f"'{source_name}' переименован в '{dest_name}'")
+    return True
+
+# --- Главный диспетчер команд ---
+
 def execute_command(command, args):
-    global CURRENT_DIR, VFS_NAME
+    # Словарь, который связывает название команды и функцию
+    commands = {
+        "ls": cmd_ls,
+        "cd": cmd_cd,
+        "uname": cmd_uname,
+        "tac": cmd_tac,
+        "mv": cmd_mv
+    }
     
     if command == "exit":
         return "EXIT"
         
-    elif command == "ls":
-        # Если аргументов нет - показываем текущую папку
-        target_dir = CURRENT_DIR
-        if args:
-            # Если аргумент есть, пытаемся найти папку (упрощенно, только для текущей директории)
-            target_dir = CURRENT_DIR.children.get(args[0])
-            if not target_dir or not isinstance(target_dir, VFSDir):
-                print(f"ls: cannot access '{args[0]}': No such file or directory")
-                return True
-
-        # Выводим содержимое
-        items = list(target_dir.children.keys())
-        if items:
-            print("  ".join(items))
-        return True
-
-    elif command == "cd":
-        if not args:
-            # cd без аргументов ведет в корень
-            CURRENT_DIR = CURRENT_DIR.parent if CURRENT_DIR.parent else CURRENT_DIR
-            return True
-        
-        target_name = args[0]
-        
-        if target_name == "..":
-            if CURRENT_DIR.parent:
-                CURRENT_DIR = CURRENT_DIR.parent
-            return True
-        elif target_name == "/":
-            while CURRENT_DIR.parent:
-                CURRENT_DIR = CURRENT_DIR.parent
-            return True
-        else:
-            target = CURRENT_DIR.children.get(target_name)
-            if target and isinstance(target, VFSDir):
-                CURRENT_DIR = target
-            else:
-                print(f"cd: no such file or directory: {target_name}")
-            return True
-
-    elif command == "uname":
-        print(VFS_NAME)
-        return True
-
-    elif command == "tac":
-        if not args:
-            print("tac: missing file operand")
-            return True
-        
-        target = CURRENT_DIR.children.get(args[0])
-        if target and isinstance(target, VFSFile):
-            # Читаем текст и переворачиваем строки
-            text = target.get_text()
-            lines = text.splitlines()
-            for line in reversed(lines):
-                print(line)
-        else:
-            print(f"tac: {args[0]}: No such file or directory")
-        return True
-
-    elif command == "mv":
-        # Проверяем, что переданы два аргумента: откуда и куда
-        if len(args) != 2:
-            print("mv: missing file operand")
-            return True
-        
-        source_name = args[0]
-        dest_name = args[1]
-
-        # 1. Ищем исходный файл или папку в текущей директории
-        source = CURRENT_DIR.children.get(source_name)
-        if not source:
-            print(f"mv: cannot stat '{source_name}': No such file or directory")
-            return True
-
-        # 2. Проверяем, куда мы перемещаем (dest_name)
-        # Если dest_name совпадает с именем существующей папки в текущей директории
-        dest_obj = CURRENT_DIR.children.get(dest_name)
-        
-        if dest_obj and isinstance(dest_obj, VFSDir):
-            # Перемещение ВНУТРЬ папки
-            target_dir = dest_obj
-            
-            # Удаляем из старой папки
-            del CURRENT_DIR.children[source_name]
-            
-            # Добавляем в новую папку (перезаписываем, если там уже есть файл с таким именем)
-            target_dir.add_child(source)
-            
-            print(f"Файл '{source_name}' перемещен в папку '{dest_name}'")
-            
-        else:
-            # ПЕРЕИМЕНОВАНИЕ (если второго аргумента-папки нет, просто меняем имя)
-            
-            # Удаляем старый ключ из словаря текущей папки
-            del CURRENT_DIR.children[source_name]
-            
-            # Меняем имя самому объекту
-            source.name = dest_name
-            
-            # Добавляем обратно в текущую папку уже с новым именем
-            CURRENT_DIR.children[dest_name] = source
-            
-            print(f"Файл переименован в '{dest_name}'")
-            
-        return True
-
+    if command in commands:
+        return commands[command](args)
     else:
         print(f"Ошибка: команда '{command}' не найдена.")
         return False
-
     
 
     

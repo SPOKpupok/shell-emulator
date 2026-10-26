@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs name="deep_pc">
+    <dir name="level1">
+        <dir name="level2">
+            <dir name="level3">
+                <file name="deep_file.txt" type="text">RGVlcCBmaWxl</file>
+            </dir>
+        </dir>
+    </dir>
+</vfs>
