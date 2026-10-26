@@ -4,14 +4,14 @@ import argparse
 from vfs import load_vfs, VFSDir, VFSFile
 
 # Глобальные переменные для нашего состояния
-CURRENT_DIR = None
+current_dir = None
 VFS_NAME = "unknown"
 
 def get_prompt():
     user = getpass.getuser()
     host = socket.gethostname()
     # Формируем путь для приглашения (пока просто имя текущей папки)
-    cwd = CURRENT_DIR.name if CURRENT_DIR else "~"
+    cwd = current_dir.name if current_dir else "~"
     if cwd == "/":
         cwd = "/"
     return f"{user}@{host}:{cwd}$ "
@@ -25,9 +25,9 @@ def parse_command(user_input):
 # --- Функции для команд ---
 
 def cmd_ls(args):
-    target_dir = CURRENT_DIR
+    target_dir = current_dir
     if args:
-        target_dir = CURRENT_DIR.children.get(args[0])
+        target_dir = current_dir.children.get(args[0])
         if not target_dir or not isinstance(target_dir, VFSDir):
             print(f"ls: нет доступа к '{args[0]}': Нет такого файла или каталога")
             return True
@@ -38,26 +38,26 @@ def cmd_ls(args):
     return True
 
 def cmd_cd(args):
-    global CURRENT_DIR
+    global current_dir
     if not args:
-        if CURRENT_DIR.parent:
-            CURRENT_DIR = CURRENT_DIR.parent
+        if current_dir.parent:
+            current_dir = current_dir.parent
         return True
     
     target_name = args[0]
     
     if target_name == "..":
-        if CURRENT_DIR.parent:
-            CURRENT_DIR = CURRENT_DIR.parent
+        if current_dir.parent:
+            current_dir = current_dir.parent
         return True
     elif target_name == "/":
-        while CURRENT_DIR.parent:
-            CURRENT_DIR = CURRENT_DIR.parent
+        while current_dir.parent:
+            current_dir = current_dir.parent
         return True
     else:
-        target = CURRENT_DIR.children.get(target_name)
+        target = current_dir.children.get(target_name)
         if target and isinstance(target, VFSDir):
-            CURRENT_DIR = target
+            current_dir = target
         else:
             print(f"cd: нет такого файла или каталога: {target_name}")
         return True
@@ -71,7 +71,7 @@ def cmd_tac(args):
         print("tac: не указан файл")
         return True
     
-    target = CURRENT_DIR.children.get(args[0])
+    target = current_dir.children.get(args[0])
     if target and isinstance(target, VFSFile):
         text = target.get_text()
         lines = text.splitlines()
@@ -82,28 +82,28 @@ def cmd_tac(args):
     return True
 
 def cmd_mv(args):
-    global CURRENT_DIR
+    global current_dir
     if len(args) != 2:
         print("mv: не указаны файлы для перемещения")
         return True
     
     source_name, dest_name = args[0], args[1]
-    source = CURRENT_DIR.children.get(source_name)
+    source = current_dir.children.get(source_name)
     if not source:
         print(f"mv: невозможно переместить '{source_name}': Нет такого файла или каталога")
         return True
 
-    dest_obj = CURRENT_DIR.children.get(dest_name)
+    dest_obj = current_dir.children.get(dest_name)
     
     if dest_obj and isinstance(dest_obj, VFSDir):
         target_dir = dest_obj
-        del CURRENT_DIR.children[source_name]
+        del current_dir.children[source_name]
         target_dir.add_child(source)
         print(f"'{source_name}' перемещен в каталог '{dest_name}'")
     else:
-        del CURRENT_DIR.children[source_name]
+        del current_dir.children[source_name]
         source.name = dest_name
-        CURRENT_DIR.children[dest_name] = source
+        current_dir.children[dest_name] = source
         print(f"'{source_name}' переименован в '{dest_name}'")
     return True
 
@@ -155,7 +155,7 @@ def run_script(filepath):
     print("--- Завершение скрипта ---\n")
 
 def main():
-    global CURRENT_DIR, VFS_NAME
+    global current_dir, VFS_NAME
     
     parser = argparse.ArgumentParser(description="Эмулятор оболочки (Этап 4)")
     parser.add_argument("--vfs", help="Путь к VFS (XML)")
@@ -170,17 +170,18 @@ def main():
     # Загрузка VFS
     if args.vfs:
         try:
-            CURRENT_DIR, VFS_NAME = load_vfs(args.vfs)
+            current_dir, VFS_NAME = load_vfs(args.vfs)
             print(f"Успешно загружена VFS: '{VFS_NAME}'")
         except Exception as e:
             print(e)
     else:
         # Создаем пустую VFS, если файл не передан
-        CURRENT_DIR = VFSDir("/")
+        current_dir = VFSDir("/")
         VFS_NAME = "empty_vfs"
 
     if args.script:
         run_script(args.script)
+        return
 
     print("Добро пожаловать в эмулятор оболочки (Этап 4)")
     print("Введите 'exit' для выхода.\n")
